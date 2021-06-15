@@ -1,4 +1,5 @@
 import os
+import rand
 import time
 
 
@@ -8,25 +9,26 @@ const (
   font_address = 0x50 // it’s become popular to put fonts at 050–09F
   program_start_address = 0x200
   max_sprite_height = 0xF
-  interval = time.second * 60 / 700
+  interval = time.second / 700
 )
 
 struct Stack {
 mut:
-  array       [stack_size]u16
-  size        byte
+  array [stack_size]u16
+  size  byte
 }
 
 struct Chip8 {
+  modern_behavior bool [required]
 mut:
-  video       &Video = 0
-  ram         [ram_size]byte
-  stack       Stack
-  pc          u16 = program_start_address
-  i           u16
-  v           [0x10]byte
-  delay_timer byte
-  sound_timer byte
+  video           &Video = 0
+  ram             [ram_size]byte
+  stack           Stack
+  pc              u16 = program_start_address
+  i               u16
+  v               [0x10]byte
+  delay_timer     byte
+  sound_timer     byte
 }
 
 fn (mut stack Stack) push(e u16) {
@@ -95,9 +97,16 @@ fn (mut chip8 Chip8) load_program(filename string) {
   }
 }
 
-fn (mut chip8 Chip8) init_video() {
-  chip8.video = get_video()
-  go chip8.video.run()
+fn (mut chip8 Chip8) run_timers() {
+  for {
+    if chip8.delay_timer > 0 {
+      chip8.delay_timer -= 1
+    }
+    if chip8.sound_timer > 0 {
+      chip8.sound_timer -= 1
+    }
+    time.sleep(time.second / 60)
+  }
 }
 
 fn (mut chip8 Chip8) fetch() (byte, byte, byte, byte, byte, u16) {
@@ -145,63 +154,89 @@ fn (mut chip8 Chip8) display(x byte, y byte, n byte) {
 }
 
 fn (mut chip8 Chip8) return_subroutine() {
-  panic("Not implemented")
+  chip8.pc = chip8.stack.pop()
 }
 
 fn (mut chip8 Chip8) call_subroutine(nnn u16) {
-  panic("Not implemented")
+  chip8.stack.push(chip8.pc)
+  chip8.jump(nnn)
 }
 
 fn (mut chip8 Chip8) skip3(x byte, nn byte) {
-  panic("Not implemented")
+  if chip8.v[x] == nn {
+    chip8.pc += 2
+  }
 }
 
 fn (mut chip8 Chip8) skip4(x byte, nn byte) {
-  panic("Not implemented")
+  if chip8.v[x] != nn {
+    chip8.pc += 2
+  }
 }
 
 fn (mut chip8 Chip8) skip5(x byte, y byte) {
-  panic("Not implemented")
+  if chip8.v[x] == chip8.v[y] {
+    chip8.pc += 2
+  }
 }
 
 fn (mut chip8 Chip8) skip9(x byte, y byte) {
-  panic("Not implemented")
+  if chip8.v[x] != chip8.v[y] {
+    chip8.pc += 2
+  }
 }
 
 fn (mut chip8 Chip8) copy(x byte, y byte) {
-  panic("Not implemented")
+  chip8.v[x] = chip8.v[y]
 }
 
-fn (mut chip8 Chip8) logical_or(x byte, y byte) {
-  panic("Not implemented")
+fn (mut chip8 Chip8) bitwise_or(x byte, y byte) {
+  chip8.v[x] |= chip8.v[y]
 }
 
-fn (mut chip8 Chip8) logical_and(x byte, y byte) {
-  panic("Not implemented")
+fn (mut chip8 Chip8) bitwise_and(x byte, y byte) {
+  chip8.v[x] &= chip8.v[y]
 }
 
-fn (mut chip8 Chip8) logical_xor(x byte, y byte) {
-  panic("Not implemented")
+fn (mut chip8 Chip8) bitwise_xor(x byte, y byte) {
+  chip8.v[x] ^= chip8.v[y]
 }
 
 fn (mut chip8 Chip8) add_record(x byte, y byte) {
-  panic("Not implemented")
+  chip8.v[x] += chip8.v[y]
+  chip8.v[0xF] = if chip8.v[x] < chip8.v[y] { byte(1) } else { byte(0) }
 }
 
-fn (mut chip8 Chip8) subtract(x byte, y byte) {
-  panic("Not implemented")
+fn (mut chip8 Chip8) substract_x_y(x byte, y byte) {
+  chip8.v[0xF] = if chip8.v[x] > chip8.v[y] { byte(1) } else { byte(0) }
+  chip8.v[x] -= chip8.v[y]
+}
+
+fn (mut chip8 Chip8) substract_y_x(x byte, y byte) {
+  chip8.v[0xF] = if chip8.v[y] > chip8.v[x] { byte(1) } else { byte(0) }
+  chip8.v[x] = chip8.v[y] - chip8.v[x]
 }
 
 fn (mut chip8 Chip8) shift(x byte, y byte, right bool) {
-  panic("Not implemented")
+  if !chip8.modern_behavior {
+    chip8.v[x] = chip8.v[y]
+  }
+  if right {
+    chip8.v[0xF] = chip8.v[x] & 0x1
+    chip8.v[x] >>= 1
+  } else {
+    chip8.v[0xF] = chip8.v[x] & 0x80
+    chip8.v[x] <<= 1
+  }
 }
 
-fn (mut chip8 Chip8) offset_jump(x byte, nn byte) {
-  panic("Not implemented")
+fn (mut chip8 Chip8) offset_jump(x byte, nnn u16) {
+  chip8.pc = nnn
+  chip8.pc += if chip8.modern_behavior { chip8.v[x] } else { chip8.v[0] }
 }
 
 fn (mut chip8 Chip8) random(x byte, nn byte) {
-  panic("Not implemented")
+  chip8.v[x] = rand.byte() & nn
 }
 
 fn (mut chip8 Chip8) skip_if_key(x byte, is_pressed bool) {
@@ -209,7 +244,7 @@ fn (mut chip8 Chip8) skip_if_key(x byte, is_pressed bool) {
 }
 
 fn (mut chip8 Chip8) copy_delay_to_vx(x byte) {
-  panic("Not implemented")
+  chip8.v[x] = chip8.delay_timer
 }
 
 fn (mut chip8 Chip8) get_key(x byte) {
@@ -217,31 +252,48 @@ fn (mut chip8 Chip8) get_key(x byte) {
 }
 
 fn (mut chip8 Chip8) copy_vx_to_delay(x byte) {
-  panic("Not implemented")
+  chip8.delay_timer = chip8.v[x]
 }
 
 fn (mut chip8 Chip8) copy_vx_to_sound(x byte) {
-  panic("Not implemented")
+  chip8.sound_timer = chip8.v[x]
 }
 
 fn (mut chip8 Chip8) add_vx_to_i(x byte) {
-  panic("Not implemented")
+  chip8.i += chip8.v[x]
+  // The following statement does not represent the behaviour of all CHIP-8 interpreters.
+  // Some games rely on this behaviour being present, while no games are known to rely on this
+  // behaviour *not* being present, therefore I include it.
+  chip8.v[0xF] = if chip8.i >= ram_size { byte(1) } else { byte(0) }
 }
 
 fn (mut chip8 Chip8) get_character(x byte) {
-  panic("Not implemented")
+  character := x & 0xF
+  chip8.i = font_address + 5 * character
 }
 
 fn (mut chip8 Chip8) convert_to_decimal(x byte) {
-  panic("Not implemented")
+  chip8.ram[chip8.i + 0] = chip8.v[x] / byte(100)
+  chip8.ram[chip8.i + 1] = (chip8.v[x] / byte(10)) % 10
+  chip8.ram[chip8.i + 2] = chip8.v[x] % 10
 }
 
 fn (mut chip8 Chip8) store_v(x byte) {
-  panic("Not implemented")
+  for i in 0..x + 1 {
+    chip8.ram[chip8.i + i] = chip8.v[i]
+  }
+  if !chip8.modern_behavior {
+    chip8.i += x + 1
+  }
 }
 
 fn (mut chip8 Chip8) load_v(x byte) {
-  panic("Not implemented")
+  for i in 0..x + 1 {
+    chip8.v[i] = chip8.ram[chip8.i + i]
+  }
+  if !chip8.modern_behavior {
+    chip8.i += x + 1
+  }
 }
 
 fn (mut chip8 Chip8) run() {
@@ -265,20 +317,20 @@ fn (mut chip8 Chip8) run() {
       0x8 {
         match n {
           0x0 { chip8.copy(x, y) }
-          0x1 { chip8.logical_or(x, y) }
-          0x2 { chip8.logical_and(x, y) }
-          0x3 { chip8.logical_xor(x, y) }
+          0x1 { chip8.bitwise_or(x, y) }
+          0x2 { chip8.bitwise_and(x, y) }
+          0x3 { chip8.bitwise_xor(x, y) }
           0x4 { chip8.add_record(x, y) }
-          0x5 { chip8.subtract(x, y) }
+          0x5 { chip8.substract_x_y(x, y) }
           0x6 { chip8.shift(y, x, true) }
-          0x7 { chip8.subtract(y, x) }
+          0x7 { chip8.substract_y_x(x, y) }
           0xE { chip8.shift(y, x, false) }
           else { handle_invalid_op(x, nnn) }
         }
       }
       0x9 { chip8.skip9(x, y) }
       0xA { chip8.set_index(nnn) }
-      0xB { chip8.offset_jump(x, nn) }
+      0xB { chip8.offset_jump(x, nnn) }
       0xC { chip8.random(x, nn) }
       0xD { chip8.display(x, y, n) }
       0xE {
@@ -313,9 +365,14 @@ fn main() {
     eprintln("Must provide a path to a program as the first argument")
     exit(-1)
   }
-  mut chip8 := Chip8{}
+  old_behaviour := os.args.len > 2 && os.args[2] == '--old-behaviour'
+  mut chip8 := &Chip8{
+    modern_behavior: !old_behaviour
+    video: get_video()
+  }
   chip8.load_font()
   chip8.load_program(os.args[1])
-  chip8.init_video()
+  go chip8.run_timers()
+  go chip8.video.run()
   chip8.run()
 }
