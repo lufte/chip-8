@@ -240,7 +240,9 @@ fn (mut chip8 Chip8) random(x byte, nn byte) {
 }
 
 fn (mut chip8 Chip8) skip_if_key(x byte, is_pressed bool) {
-  panic("Not implemented")
+  if chip8.video.keyboard[chip8.v[x]] == is_pressed {
+    chip8.pc += 2
+  }
 }
 
 fn (mut chip8 Chip8) copy_delay_to_vx(x byte) {
@@ -248,7 +250,13 @@ fn (mut chip8 Chip8) copy_delay_to_vx(x byte) {
 }
 
 fn (mut chip8 Chip8) get_key(x byte) {
-  panic("Not implemented")
+  mut i := byte(0)
+  for key in chip8.video.keyboard {
+    if key {
+      chip8.v[x] = i
+    }
+    i += 1
+  }
 }
 
 fn (mut chip8 Chip8) copy_vx_to_delay(x byte) {
@@ -268,7 +276,7 @@ fn (mut chip8 Chip8) add_vx_to_i(x byte) {
 }
 
 fn (mut chip8 Chip8) get_character(x byte) {
-  character := x & 0xF
+  character := chip8.v[x] & 0xF
   chip8.i = font_address + 5 * character
 }
 
@@ -366,9 +374,11 @@ fn main() {
     exit(-1)
   }
   old_behaviour := os.args.len > 2 && os.args[2] == '--old-behaviour'
+  path_parts := os.args[1].split('/')
+  filename := path_parts[path_parts.len - 1]
   mut chip8 := &Chip8{
     modern_behavior: !old_behaviour
-    video: get_video()
+    video: get_video(filename)
   }
   chip8.load_font()
   chip8.load_program(os.args[1])

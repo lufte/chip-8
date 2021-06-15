@@ -5,18 +5,37 @@ import gx
 const (
 	width      = 64
 	height     = 32
-  scale      = 20
+  scale      = 10
   fg_color   = gx.white
   bg_color   = gx.black
+  keymap     = map{
+    gg.KeyCode.x: 0
+    gg.KeyCode._1: 1
+    gg.KeyCode._2: 2
+    gg.KeyCode._3: 3
+    gg.KeyCode.q: 4
+    gg.KeyCode.w: 5
+    gg.KeyCode.e: 6
+    gg.KeyCode.a: 7
+    gg.KeyCode.s: 8
+    gg.KeyCode.d: 9
+    gg.KeyCode.z: 10
+    gg.KeyCode.c: 11
+    gg.KeyCode._4: 12
+    gg.KeyCode.r: 13
+    gg.KeyCode.f: 14
+    gg.KeyCode.v: 15
+  }
 )
 
 struct Video {
 mut:
-	gg     &gg.Context
-  matrix [width][height]bool = [width][height]bool{init: [height]bool{init: false}}
+	gg       &gg.Context
+  matrix   [width][height]bool = [width][height]bool{init: [height]bool{init: false}}
+  keyboard [16]bool
 }
 
-fn get_video() &Video {
+fn get_video(window_title string) &Video {
   mut video := &Video{
     gg: 0
   }
@@ -27,7 +46,7 @@ fn get_video() &Video {
 		use_ortho: true // This is needed for 2D drawing
 		create_window: true
     resizable: false
-		window_title: 'CHIP-8 in VLang'
+		window_title: window_title
 		frame_fn: frame
 		user_data: video
     event_fn: on_event
@@ -46,8 +65,11 @@ fn frame(video &Video) {
 }
 
 fn on_event(evt &gg.Event, mut video Video) {
-  if evt.typ == .quit_requested {
+  if evt.typ == .quit_requested || (evt.typ == .key_down && evt.key_code == .escape) {
     exit(0)
+  } else if (evt.typ == .key_down || evt.typ == .key_up) && evt.key_code in keymap {
+    i := keymap[evt.key_code]  // intermediate variable to work around V bug
+    video.keyboard[i] = evt.typ == .key_down
   }
 }
 
