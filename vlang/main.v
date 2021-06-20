@@ -343,9 +343,9 @@ fn (mut chip8 Chip8) run() {
           0x3 { chip8.bitwise_xor(x, y) }
           0x4 { chip8.add_record(x, y) }
           0x5 { chip8.substract_x_y(x, y) }
-          0x6 { chip8.shift(y, x, true) }
+          0x6 { chip8.shift(x, y, true) }
           0x7 { chip8.substract_y_x(x, y) }
-          0xE { chip8.shift(y, x, false) }
+          0xE { chip8.shift(x, y, false) }
           else { handle_invalid_op(x, nnn) }
         }
       }
