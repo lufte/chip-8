@@ -105,7 +105,7 @@ fn (mut video Video) draw_sprite(x byte, y byte, sprite []byte) bool {
       bit := (row & (0x80 >> col)) > 0
       prev := video.matrix[modx + col][mody]
       video.matrix[modx + col][mody] = prev != bit
-      off = off || (prev && !bit)
+      off = off || (prev && bit)
     }
     mody += 1
   }

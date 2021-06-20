@@ -109,14 +109,13 @@ fn (mut chip8 Chip8) run_timers() {
   }
 }
 
-fn (mut chip8 Chip8) fetch() (byte, byte, byte, byte, byte, u16) {
+fn (chip8 Chip8) fetch() (byte, byte, byte, byte, byte, u16) {
   nibble := chip8.ram[chip8.pc] >> 4
   x      := chip8.ram[chip8.pc] & 0xF
   y      := chip8.ram[chip8.pc + 1] >> 4
   n      := chip8.ram[chip8.pc + 1] & 0xF
   nn     := chip8.ram[chip8.pc + 1]
   nnn    := u16(x << 8) + nn
-  chip8.pc += 2
   return nibble, x, y, n, nn, nnn
 }
 
@@ -269,10 +268,12 @@ fn (mut chip8 Chip8) copy_vx_to_sound(x byte) {
 
 fn (mut chip8 Chip8) add_vx_to_i(x byte) {
   chip8.i += chip8.v[x]
-  // The following statement does not represent the behaviour of all CHIP-8 interpreters.
+  // The following block does not represent the behaviour of all CHIP-8 interpreters.
   // Some games rely on this behaviour being present, while no games are known to rely on this
   // behaviour *not* being present, therefore I include it.
-  chip8.v[0xF] = if chip8.i >= ram_size { byte(1) } else { byte(0) }
+  if chip8.i >= ram_size {
+    chip8.v[0xF] = byte(1)
+  }
 }
 
 fn (mut chip8 Chip8) get_character(x byte) {
@@ -304,9 +305,21 @@ fn (mut chip8 Chip8) load_v(x byte) {
   }
 }
 
+fn (chip8 Chip8) core_dump() {
+    nibble, _, _, _, _, nnn := chip8.fetch()
+    println(
+      "0x${nibble:x}${nnn:03x} | ${chip8.i:04x} | " +
+      "${chip8.v[0x0]:02x} ${chip8.v[0x1]:02x} ${chip8.v[0x2]:02x} ${chip8.v[0x3]:02x} " +
+      "${chip8.v[0x4]:02x} ${chip8.v[0x5]:02x} ${chip8.v[0x6]:02x} ${chip8.v[0x7]:02x} " +
+      "${chip8.v[0x8]:02x} ${chip8.v[0x9]:02x} ${chip8.v[0xA]:02x} ${chip8.v[0xB]:02x} " +
+      "${chip8.v[0xC]:02x} ${chip8.v[0xD]:02x} ${chip8.v[0xE]:02x} ${chip8.v[0xF]:02x}"
+    )
+}
+
 fn (mut chip8 Chip8) run() {
   for {
     nibble, x, y, n, nn, nnn := chip8.fetch()
+    chip8.pc += 2
     match nibble {
       0x0 {
         match nnn {
