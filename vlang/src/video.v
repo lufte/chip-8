@@ -3,8 +3,8 @@ import gx
 
 
 const (
-	width           = 64
-	height          = 32
+  width           = 64
+  height          = 32
   scale           = 10
   pixel_fade_step = 0x15  // Set to 0xFF to disable fade effect
   keymap          = map{
@@ -29,7 +29,7 @@ const (
 
 struct Video {
 mut:
-	gg       &gg.Context
+  gg       &gg.Context
   matrix   [width][height]byte = [width][height]byte{init: [height]byte{init: 0x00}}
   keyboard [16]bool
 }
@@ -39,28 +39,28 @@ fn get_video(window_title string) &Video {
     gg: 0
   }
   video.gg = gg.new_context(
-		bg_color: gx.black
-		width: width * scale
-		height: height * scale
-		use_ortho: true // This is needed for 2D drawing
-		create_window: true
+    bg_color: gx.black
+    width: width * scale
+    height: height * scale
+    use_ortho: true // This is needed for 2D drawing
+    create_window: true
     resizable: false
-		window_title: window_title
-		frame_fn: frame
-		user_data: video
+    window_title: window_title
+    frame_fn: frame
+    user_data: video
     event_fn: on_event
-	)
+  )
   return video
 }
 
 fn (video &Video) run() {
-	video.gg.run()
+  video.gg.run()
 }
 
 fn frame(mut video &Video) {
-	video.gg.begin()
-	video.render()
-	video.gg.end()
+  video.gg.begin()
+  video.render()
+  video.gg.end()
 }
 
 fn on_event(evt &gg.Event, mut video Video) {
