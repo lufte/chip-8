@@ -3,12 +3,11 @@ import gx
 
 
 const (
-	width      = 64
-	height     = 32
-  scale      = 10
-  fg_color   = gx.white
-  bg_color   = gx.black
-  keymap     = map{
+	width           = 64
+	height          = 32
+  scale           = 10
+  pixel_fade_step = 0x15  // Set to 0xFF to disable fade effect
+  keymap          = map{
     gg.KeyCode.x: 0
     gg.KeyCode._1: 1
     gg.KeyCode._2: 2
@@ -31,7 +30,7 @@ const (
 struct Video {
 mut:
 	gg       &gg.Context
-  matrix   [width][height]bool = [width][height]bool{init: [height]bool{init: false}}
+  matrix   [width][height]byte = [width][height]byte{init: [height]byte{init: 0x00}}
   keyboard [16]bool
 }
 
@@ -58,7 +57,7 @@ fn (video &Video) run() {
 	video.gg.run()
 }
 
-fn frame(video &Video) {
+fn frame(mut video &Video) {
 	video.gg.begin()
 	video.render()
 	video.gg.end()
@@ -73,10 +72,21 @@ fn on_event(evt &gg.Event, mut video Video) {
   }
 }
 
-fn (video &Video) render() {
+fn (mut video Video) render() {
   for x in 0..width {
     for y in 0..height {
-      color := if video.matrix[x][y] {fg_color} else {bg_color}
+      color := gx.Color {
+        r: video.matrix[x][y]
+        g: video.matrix[x][y]
+        b: video.matrix[x][y]
+      }
+      if video.matrix[x][y] > 0 && video.matrix[x][y] < 0xFF {
+        if video.matrix[x][y] >= pixel_fade_step {
+          video.matrix[x][y] -= pixel_fade_step
+        } else {
+          video.matrix[x][y] = 0
+        }
+      }
       video.gg.draw_rect(x * scale, y * scale, scale, scale, color)
     }
   }
@@ -85,7 +95,7 @@ fn (video &Video) render() {
 fn (mut video Video) clear_screen() {
   for x in 0..width {
     for y in 0..height {
-      video.matrix[x][y] = false
+      video.matrix[x][y] = 0x00
     }
   }
 }
@@ -104,8 +114,12 @@ fn (mut video Video) draw_sprite(x byte, y byte, sprite []byte) bool {
       }
       bit := (row & (0x80 >> col)) > 0
       prev := video.matrix[modx + col][mody]
-      video.matrix[modx + col][mody] = prev != bit
-      off = off || (prev && bit)
+      if prev == 0xFF && bit {
+        video.matrix[modx + col][mody] -= pixel_fade_step
+      } else if bit {
+        video.matrix[modx + col][mody] = 0xFF
+      }
+      off = off || (prev == 0xFF && bit)
     }
     mody += 1
   }
