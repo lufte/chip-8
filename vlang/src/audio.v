@@ -1,6 +1,9 @@
 import math
 import sokol.audio
 
+// Credits: taken almost entirely from
+// https://github.com/vlang/v/blob/master/examples/sokol/sounds/simple_sin_tones.v
+
 fn sintone(periods int, frame int, num_frames int) f32 {
   return math.sinf(f32(periods) * (2 * math.pi) * f32(frame) / f32(num_frames))
 }
