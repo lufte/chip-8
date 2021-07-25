@@ -14,5 +14,5 @@ v src -o chip8
 or
 
 ```
-v run src
+v run src path/to/your/game
 ```
