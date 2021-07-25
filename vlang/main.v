@@ -22,6 +22,7 @@ struct Chip8 {
   modern_behavior bool [required]
 mut:
   video           &Video = 0
+  audio           &Audio = 0
   ram             [ram_size]byte
   stack           Stack
   pc              u16 = program_start_address
@@ -104,6 +105,9 @@ fn (mut chip8 Chip8) run_timers() {
     }
     if chip8.sound_timer > 0 {
       chip8.sound_timer -= 1
+      if chip8.sound_timer == 0 {
+        chip8.audio.beep_off()
+      }
     }
     time.sleep(time.second / 60)
   }
@@ -264,6 +268,9 @@ fn (mut chip8 Chip8) copy_vx_to_delay(x byte) {
 
 fn (mut chip8 Chip8) copy_vx_to_sound(x byte) {
   chip8.sound_timer = chip8.v[x]
+  if chip8.v[x] > 0 {
+    chip8.audio.beep_on()
+  }
 }
 
 fn (mut chip8 Chip8) add_vx_to_i(x byte) {
@@ -392,6 +399,10 @@ fn main() {
   mut chip8 := &Chip8{
     modern_behavior: !old_behaviour
     video: get_video(filename)
+    audio: get_audio()
+  }
+  defer {
+    chip8.audio.shutdown()
   }
   chip8.load_font()
   chip8.load_program(os.args[1])
